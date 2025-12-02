@@ -1,9 +1,17 @@
 use core::fmt;
 
+/// Enum that represents all possible errors that can be returned by `Drbg`
+/// constructors.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DrbgError {
+    /// Error that is returned when an empty array is received instead of an
+    /// array of seed material.
     EmptyArray,
+    /// Error that is returned when an element within an array of seed material
+    /// is empty.
     EmptyElement(Vec<usize>),
+    /// Error that is returned when the selected hash algorithm's digest size
+    /// is below 16 bytes.
     DigestTooSmall(usize),
 }
 

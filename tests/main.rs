@@ -1,38 +1,38 @@
-use hex::{FromHexError, decode};
+use hex_literal::hex;
 use rand_core::RngCore;
 use sc_drbg::Drbg;
 use sha3::Sha3_256;
 
-fn get_seed_vec() -> Result<Vec<Vec<u8>>, FromHexError> {
+fn get_seed_vec() -> Vec<Vec<u8>> {
     let arr = vec![
-        decode("ca33496c5c9e5f3ce6e932a0670d320f")?,
-        decode("e17baaae2056f7cea2083482f9818b1c")?,
-        decode("2c1aef2c624598ae937eed2b5ad9448b")?,
-        decode("6932a3726327aa4a092771dabf198fc7")?,
-        decode("fe9fe0c3b16f8ae27b09856bd0f487d1")?,
-        decode("87c83f8f122b3bcccf42a97f487133f9")?,
-        decode("5bc58505a5cc3406168facc39ba0f5dc")?,
+        hex!("ca33496c5c9e5f3ce6e932a0670d320f").to_vec(),
+        hex!("e17baaae2056f7cea2083482f9818b1c").to_vec(),
+        hex!("2c1aef2c624598ae937eed2b5ad9448b").to_vec(),
+        hex!("6932a3726327aa4a092771dabf198fc7").to_vec(),
+        hex!("fe9fe0c3b16f8ae27b09856bd0f487d1").to_vec(),
+        hex!("87c83f8f122b3bcccf42a97f487133f9").to_vec(),
+        hex!("5bc58505a5cc3406168facc39ba0f5dc").to_vec(),
     ];
-    Ok(arr)
+    arr
 }
 
 #[test]
 fn drbg_u32_le() {
     // Expected u32 and u64 outputs
     let u32_le_u32: [u32; 5] =
-        [1088321269, 574267334, 2789630583, 2361077724, 2428529226];
+        [2296859039, 3520090129, 755322988, 1089056308, 1233950592];
     let u32_le_u64: [u64; 5] = [
-        6034093503353353973,
-        6716340068268398770,
-        4715358673953101616,
-        5740942628896112298,
-        7334600668779912220,
+        14627290128518171039,
+        14312161537058068219,
+        15005291635268623789,
+        3355993008263979106,
+        14800901245741747956,
     ];
     // Get seed elements from hex strings, set context
-    let arr = get_seed_vec().expect("Should decode all hex strings");
+    let arr = get_seed_vec();
     let context = "some-test-app";
     // Create DRBG using SHA3-256, 32 bit counter, little-endian
-    let mut drbg = Drbg::<Sha3_256>::new_u32_le(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u32>::new_le(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
     // Check that each generated u32 matches expected output
     for i in 0..5 {
@@ -40,7 +40,7 @@ fn drbg_u32_le() {
         assert_eq!(num, u32_le_u32[i]);
     }
     // Re-initialize DRBG
-    drbg = Drbg::<Sha3_256>::new_u32_le(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u32>::new_le(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
     // Check that each generated u64 matches expected output
     for i in 0..5 {
@@ -53,19 +53,19 @@ fn drbg_u32_le() {
 fn drbg_u32_be() {
     // Expected u32 and u64 outputs
     let u32_be_u32: [u32; 5] =
-        [2270311602, 3589045505, 3682340443, 1261300795, 3223195470];
+        [1063137602, 2826121088, 3298000299, 2890410248, 3294535920];
     let u32_be_u64: [u64; 5] = [
-        9750914083921614167,
-        17033913984057126318,
-        875900545375946641,
-        13800722825688937135,
-        14352485036659351884,
+        4566141234723800237,
+        2655253991924942313,
+        11414807746746846060,
+        14120807454358857646,
+        15529248475412121348,
     ];
     // Get seed elements from hex strings, set context
-    let arr = get_seed_vec().expect("Should decode all hex strings");
+    let arr = get_seed_vec();
     let context = "some-test-app";
     // Create DRBG using SHA3-256, 32 bit counter, big-endian
-    let mut drbg = Drbg::<Sha3_256>::new_u32_be(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u32>::new_be(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
     // Check that each generated u32 matches expected output
     for i in 0..5 {
@@ -73,7 +73,7 @@ fn drbg_u32_be() {
         assert_eq!(num, u32_be_u32[i]);
     }
     // Re-initialize DRBG
-    drbg = Drbg::<Sha3_256>::new_u32_be(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u32>::new_be(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
     // Check that each generated u64 matches expected output
     for i in 0..5 {
@@ -86,19 +86,19 @@ fn drbg_u32_be() {
 fn drbg_u64_le() {
     // Expected u32 and u64 outputs
     let u64_le_u32: [u32; 5] =
-        [1557638083, 476095602, 48395877, 2710624076, 3776901043];
+        [3513012354, 3115741082, 3418770424, 1178855421, 2303171038];
     let u64_le_u64: [u64; 5] = [
-        10416173465413856195,
-        272724317746412691,
-        3862251445925633354,
-        1841283581078576857,
-        3344596433754050210,
+        4347230222507331714,
+        16466604991238817181,
+        12219542919680157343,
+        13248978728273083570,
+        7071113371231795053,
     ];
     // Get seed elements from hex strings, set context
-    let arr = get_seed_vec().expect("Should decode all hex strings");
+    let arr = get_seed_vec();
     let context = "some-test-app";
     // Create DRBG using SHA3-256, 64 bit counter, little-endian
-    let mut drbg = Drbg::<Sha3_256>::new_u64_le(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u64>::new_le(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
     // Check that each generated u32 matches expected output
     for i in 0..5 {
@@ -106,7 +106,7 @@ fn drbg_u64_le() {
         assert_eq!(num, u64_le_u32[i]);
     }
     // Re-initialize DRBG
-    drbg = Drbg::<Sha3_256>::new_u64_le(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u64>::new_le(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
     // Check that each generated u64 matches expected output
     for i in 0..5 {
@@ -119,19 +119,19 @@ fn drbg_u64_le() {
 fn drbg_u64_be() {
     // Expected u32 and u64 outputs
     let u64_be_u32: [u32; 5] =
-        [3747155193, 2319339581, 1968096256, 2233033939, 3671142433];
+        [502628020, 2880383839, 3798114914, 3862077194, 2667019303];
     let u64_be_u64: [u64; 5] = [
-        16093909010339455819,
-        1212188418513365825,
-        14575403774737134300,
-        12232231267039432147,
-        918691564519710065,
+        2158770911501693864,
+        57669768752051356,
+        14834690014904699227,
+        1061605113615837153,
+        17929217830921720000,
     ];
     // Get seed elements from hex strings, set context
-    let arr = get_seed_vec().expect("Should decode all hex strings");
+    let arr = get_seed_vec();
     let context = "some-test-app";
     // Create DRBG using SHA3-256, 64 bit counter, big-endian
-    let mut drbg = Drbg::<Sha3_256>::new_u64_be(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u64>::new_be(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
     // Check that each generated u32 matches expected output
     for i in 0..5 {
@@ -139,7 +139,7 @@ fn drbg_u64_be() {
         assert_eq!(num, u64_be_u32[i]);
     }
     // Re-initialize DRBG
-    drbg = Drbg::<Sha3_256>::new_u64_be(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u64>::new_be(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
     // Check that each generated u64 matches expected output
     for i in 0..5 {
