@@ -1,69 +1,57 @@
-# Rust::SC_DRBG
+# SC_DRBG in Rust
 A Rust implementation of the **Subset Counter-Based Deterministic Random Bit Generator** (SC_DRBG).
 
 > This is a new and experimental function that has not undergone any review or audit. In the absence of cryptanalysis, use at your own risk.
 
-SC_DRBG is a deterministic random bit generator that utilizes an internal array of seed elements maintained in the internal state, rather than a single seed, that allows for a configurable subset of those elements (1 to N) for use in the generation of each output.
+Provides a deterministic random bit generator that maintains an array of seed material in its internal state (rather than a single seed), allowing each output to be generated from a configurable subset of array elements.
 
-The following features are supported by SC_DRBG:
-- Supports 32 bit and 32 bit unsigned integers for the internal counter, and other integer values.
-- Configurable endianness for integer encoding and decoding.
-- Binding of array elements to their positions, lengths, and contents via cryptographic commitment.
-- A configurable number of mixing rounds for entropy distribution across seed elements.
-- Provides forward security through continuous state evolution.
-- Implements [RngCore](https://docs.rs/rand_core/0.9.3/rand_core/trait.RngCore.html) for compatibility with the Rust random ecosystem.
-- Secure memory zeroization on drop.
+SC_DRBG supports 32 and 64 bit unsigned integers for the internal counter and other integer values. The byte order for integer encoding and decoding is configurable via different constructors, and an `Endian` enum. Supports commitment of elements from an array of seed material to their positions, lengths, and contents, and configurable rounds of mixing for entropy diffusion across elements. Forward secrecy is provided through continuous state evolution.
 
-The `Drbg` struct supports initialization via eight different constructors:
-- **new_u32_le**: Uses a 32 bit counter with little-endian encoding. Applies binding and mixing, where each element in the seed array is committed to its position, length, and content, then rounds of SHAKE256 mixing are applied for entropy distribution across seed elements.
-- **new_from_u32_le**: Uses a 32 bit counter with little-endian encoding. Bypasses binding and mixing, instead directly using a provided seed array to initialize the `Drbg` state. Use this to process seed material that has been processed externally, or to restore from a previous state.
-- **new_u32_be**: Uses a 32 bit counter with big-endian encoding. Like the `new_u32_le` constructor, but adjusted for endianness.
-- **new_from_u32_be**: Uses a 32 bit counter with big-endian encoding. Like the `new_from_u32_le` constructor, but adjusted for endianness.
-- **new_u64_le**: Uses a 64 bit counter with little-endian encoding. Like the 32 bit versions of `new_*`, but with unsigned 64 bit integers.
-- **new_from_u64_le**: Uses a 64 bit counter with little-endian encoding. Like the 32 bit versions of `new_from_*`, but with unsigned 64 bit integers.
-- **new_u64_be**: Uses a 64 bit counter with big-endian encoding. Like the `new_u64_le` constructor, but adjusted for endianness.
-- **new_from_u64_be**: Uses a 64 bit counter with big-endian encoding. Like the `new_from_u64_le` constructor, but adjusted for endianness.
+# Drbg Structure
+The `Drbg` structure representing SC_DRBG implements [RngCore](https://docs.rs/rand_core/0.9.3/rand_core/trait.RngCore.html) for compatibility with the Rust ecosystem as a deterministic random bit generator, and secure memory [zeroization](https://docs.rs/zeroize/1.8.2/zeroize/) on drop. Two generic parameters `<D, T>` are expected. Generic parameter `D` is a hashing algorithm implementing the `Digest` trait, and `T` is the type for all integer values, including the internal counter, as either `u32` or `u64`.
 
-When initializing using a `new_from_*` constructor, seed material can still utilize binding and mixing, via the `bind` and mix `methods`. These methods are functionally identical to those which are automatically applied in the `new_*` constructors, and return the bound/mixed elements are returned
+## Constructors
+An instance of `Drbg` can be initialized via two different constructors, differentiated by endianness:
+- **new_le**: Create a new instance using little-endian byte order.
+- **new_be**: Create a new instance using big-endian byte order.
 
-Regardless of how the struct is initialized, the following methods are always available:
-- **next_u32**: From the _RngCore_ implementation. Returns the next random unsigned 32 bit integer.
-- **next_u32_subset**: Returns the next random unsigned 32 bit integer, seeded by a subset of elements from the internal state. The number of elements to use must be specified, and is clamped to the total array length.
-- **next_u64**: From the _RngCore_ implementation. Returns the next random unsigned 64 bit integer.
-- **next_u64_subset**: Returns the next random unsigned 64 bit integer, seeded by a subset of elements from the internal state. The number of elements to use must be specified, and is clamped to the total array length.
-- **fill_bytes**: From the _RngCore_ implementation. Fills a destination buffer with random bytes.
-- **fill_bytes_subset**: Fills a destination buffer with random bytes, seeded by a subset of elements from the internal state. The number of elements to use must be specified, and is clamped to the total array length.
+Both constructors create a new instance from an array of seed material, and an optional context string. A boolean value indicating if the seed material should be processed by an initialization function is also expected. When *true*, the seed material will undergo initialization[^1] before the new instance is created, and when *false*, the seed material will directly be used in the new instance.
 
-## Example Use
+[^1]: See the [Initialization Function](#initialization-function) section for more details. When an array of seed material undergoes initialization via one of the constructors, the nonce is derived from a hash of the seed material, and one round of mixing is applied.
+
+## Initialization Function
+The initialization function `initialize` for arrays of seed material completes two steps to process seed material before creating a new `Drbg` instance:  Committing elements to their properties, and mixing for entropy diffusion. The function expects an array of seed material, optional context string, nonce, number of mixing rounds, and an Endian enum for byte order. In the first step, for each element in the array of seed material, an HMAC is created to commit each element to its position, length, and content. In the second step, the committed elements undergo rounds of mixing to diffuse entropy across elements, using a SHAKE256 sponge "absorb then squeeze" construction.
+
+## Generator Methods
+The `Drbg` generator methods are used to produce random numbers and random bytes. The generator provides forward secrecy by updating the state after each call. One round of mixing is applied, using the last generated bytes in deriving the mixing key, and a new pseudorandom key for the next round is derived. Two variants of each method are supported, one from the _RngCore_ implementation that uses all elements from the array of seed material to seed the generator, and one using a subset of elements to seed the generator, with the subset clamped to the total array length:
+- **next_u32**: Returns the next random unsigned 32 bit integer, seeded by all elements.
+- **next_u32_subset**: Returns the next random unsigned 32 bit integer, seeded by a subset of elements.
+- **next_u64**: Returns the next random unsigned 64 bit integer, seeded by all elements.
+- **next_u64_subset**: Returns the next random unsigned 64 bit integer, seeded by a subset of elements.
+- **fill_bytes**: Fills a destination buffer with random bytes, seeded by all elements.
+- **fill_bytes_subset**: Fills a destination buffer with random bytes, seeded by a subset of elements.
+
+# Example Use
 ```rust
+use hex_literal::hex;
 use rand_core::RngCore;
 use sc_drbg::Drbg;
-use sha2::Sha256;
+use sha3::Sha3_256;
 
 fn main() {
-    // Define array elements and optional context string
     let arr = vec![
-        b"L01X00T47".to_vec(),
-        b"MUSTERMANN".to_vec(),
-        b"ERIKA".to_vec(),
-        b"12081983".to_vec(),
-        b"DEUTSCH".to_vec(),
-        b"BERLIN".to_vec(),
+        hex!("456E64204F662054686520576F726C642053756E").to_vec(),
+        hex!("556E6D616B65207468652057696C64204C69676874").to_vec(),
+        hex!("536166652050617373616765").to_vec(),
+        hex!("747261636B6572706C61747A").to_vec(),
+        hex!("3635646179736F66737461746963").to_vec(),
     ];
-    let context = "my-app";
+    let context = "some-random-application";
 
-    // Create DRBG
-    let mut drbg = Drbg::<Sha256>::new_u32_le(&arr, Some(context), 1)
+    let mut drbg = Drbg::<Sha3_256, u32>::new_le(&arr, Some(context), true)
         .expect("Should create new SC_DRBG instance");
 
-    // Fill dst with 32 bytes from Drbg
-    let mut dst = [0u8; 32];
-    drbg.fill_bytes(&mut dst);
-
-    // Fill dst using subset of 4 elements
-    drbg.fill_bytes_subset(4, &mut dst);
-
-    // Get 64 bit unsigned integer via rand_core
-   let num = drbg.next_u64();
+    let num = drbg.next_u32();
+    assert_eq!(num, 4076030162);
 }
 ```
